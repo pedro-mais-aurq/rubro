@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>RUBRO - Main Menu · Guerra Sanguínea</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;700;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+
+        body {
+            background: #0a0000;
+            overflow-x: hidden;
+            font-family: 'Cinzel', serif;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('assets/ui/rubro_background.png') no-repeat center 12% / cover;
+            z-index: 0;
+            filter: brightness(0.9) contrast(1.05);
+            pointer-events: none;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at 50% 70%, transparent 45%, rgba(0,0,0,0.55) 90%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            width: 100%;
+            max-width: 700px;
+            margin-bottom: 5vh;
+            margin-top: auto;
+            padding-bottom: 2rem;
+            gap: 0;
+            animation: fadeSlideUp 1s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+
+        @keyframes fadeSlideUp {
+            0% { opacity: 0; transform: translateY(60px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-area {
+            position: relative;
+            margin-bottom: 2rem;
+            text-align: center;
+            transform: translateY(0);
+        }
+
+        .logo-glow {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 380px;
+            height: 180px;
+            background: radial-gradient(ellipse, rgba(139, 0, 0, 0.5) 0%, transparent 70%);
+            filter: blur(40px);
+            animation: logoGlow 4s ease-in-out infinite;
+        }
+
+        @keyframes logoGlow {
+            0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.08); }
+        }
+
+        .game-title {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 64px;
+            font-weight: 900;
+            color: #e8d5c4;
+            text-transform: uppercase;
+            letter-spacing: 12px;
+            position: relative;
+            text-shadow: 
+                0 0 20px rgba(139, 0, 0, 0.8),
+                0 0 40px rgba(139, 0, 0, 0.5),
+                0 0 60px rgba(139, 0, 0, 0.3),
+                2px 2px 4px rgba(0, 0, 0, 0.8);
+            animation: titleBreath 3s ease-in-out infinite;
+        }
+
+        .game-title::before {
+            content: 'RUBRO';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            color: transparent;
+            -webkit-text-stroke: 2px rgba(139, 0, 0, 0.5);
+            z-index: -1;
+        }
+
+        @keyframes titleBreath {
+            0%, 100% { 
+                text-shadow: 
+                    0 0 20px rgba(139, 0, 0, 0.8),
+                    0 0 40px rgba(139, 0, 0, 0.5),
+                    0 0 60px rgba(139, 0, 0, 0.3),
+                    2px 2px 4px rgba(0, 0, 0, 0.8);
+            }
+            50% { 
+                text-shadow: 
+                    0 0 30px rgba(178, 34, 34, 1),
+                    0 0 60px rgba(178, 34, 34, 0.7),
+                    0 0 90px rgba(178, 34, 34, 0.4),
+                    2px 2px 4px rgba(0, 0, 0, 0.8);
+            }
+        }
+
+        .subtitle {
+            font-family: 'Cinzel', serif;
+            font-size: 12px;
+            color: #b33a3a;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            margin-top: 8px;
+            opacity: 0.9;
+            text-shadow: 0 0 8px rgba(139, 0, 0, 0.6);
+        }
+
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.4rem;
+            width: 100%;
+            margin-bottom: 2vh;
+        }
+
+        .menu-button {
+            position: relative;
+            width: 340px;
+            height: 58px;
+            background: linear-gradient(180deg, 
+                rgba(16, 0, 0, 0.92) 0%, 
+                rgba(35, 0, 0, 0.88) 50%,
+                rgba(16, 0, 0, 0.92) 100%);
+            border: 1px solid rgba(139, 0, 0, 0.7);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: visible;
+            backdrop-filter: blur(2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .menu-button::before,
+        .menu-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 38px;
+            background: linear-gradient(135deg, 
+                rgba(139, 0, 0, 0.9), 
+                rgba(60, 0, 0, 0.7));
+            border: 1px solid rgba(139, 0, 0, 0.5);
+            transition: all 0.35s ease;
+            filter: drop-shadow(0 0 4px #8b0000);
+        }
+
+        .menu-button::before {
+            left: -14px;
+            clip-path: polygon(100% 0%, 100% 100%, 0% 85%, 0% 15%);
+        }
+
+        .menu-button::after {
+            right: -14px;
+            clip-path: polygon(0% 0%, 0% 100%, 100% 85%, 100% 15%);
+        }
+
+        .menu-button .button-inner {
+            position: absolute;
+            top: 4px;
+            left: 10px;
+            right: 10px;
+            bottom: 4px;
+            border: 1px solid rgba(139, 0, 0, 0.3);
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .menu-button .vein-pattern {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.12;
+            background: 
+                linear-gradient(90deg, transparent 48%, rgba(139, 0, 0, 0.4) 49%, rgba(139, 0, 0, 0.4) 51%, transparent 52%),
+                linear-gradient(0deg, transparent 48%, rgba(139, 0, 0, 0.3) 49%, rgba(139, 0, 0, 0.3) 51%, transparent 52%);
+            background-size: 20px 20px;
+            pointer-events: none;
+        }
+
+        .menu-button .button-text {
+            font-family: 'Cinzel', serif;
+            font-size: 17px;
+            font-weight: 700;
+            color: #ecd9c9;
+            text-transform: uppercase;
+            letter-spacing: 6px;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s ease;
+            text-shadow: 0 1px 3px black;
+        }
+
+        .menu-button .blood-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, rgba(139, 0, 0, 0.35) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.35s ease;
+            pointer-events: none;
+        }
+
+        .menu-button:hover {
+            background: linear-gradient(180deg, 
+                rgba(55, 0, 0, 0.96) 0%, 
+                rgba(95, 0, 0, 0.9) 50%,
+                rgba(55, 0, 0, 0.96) 100%);
+            border-color: rgba(200, 40, 60, 1);
+            box-shadow: 0 0 22px rgba(139, 0, 0, 0.7), 0 0 45px rgba(139, 0, 0, 0.3), inset 0 0 12px rgba(139, 0, 0, 0.2);
+            transform: scale(1.02);
+        }
+
+        .menu-button:hover::before,
+        .menu-button:hover::after {
+            background: linear-gradient(135deg, 
+                rgba(180, 40, 50, 1), 
+                rgba(100, 0, 0, 0.9));
+            border-color: rgba(200, 50, 70, 0.9);
+            box-shadow: 0 0 12px rgba(180, 0, 0, 0.7);
+        }
+
+        .menu-button:hover .button-text {
+            color: #fff5ec;
+            text-shadow: 0 0 12px rgba(220, 40, 60, 0.9), 0 0 22px rgba(200, 0, 0, 0.5);
+            letter-spacing: 8px;
+        }
+
+        .menu-button:hover .blood-glow {
+            opacity: 1;
+        }
+
+        .menu-button:hover .vein-pattern {
+            opacity: 0.25;
+            animation: veinFlow 2s linear infinite;
+        }
+
+        @keyframes veinFlow {
+            0% { background-position: 0 0; }
+            100% { background-position: 20px 20px; }
+        }
+
+        .menu-button.active {
+            background: linear-gradient(180deg, 
+                rgba(70, 0, 0, 0.98) 0%, 
+                rgba(130, 0, 0, 0.92) 50%,
+                rgba(70, 0, 0, 0.98) 100%);
+            border-color: rgba(220, 30, 60, 1);
+            box-shadow: 0 0 28px rgba(180, 20, 40, 0.8), 0 0 55px rgba(139, 0, 0, 0.5), inset 0 0 25px rgba(180, 20, 40, 0.3);
+            animation: heartbeat 1.9s ease-in-out infinite;
+        }
+
+        @keyframes heartbeat {
+            0%, 100% { 
+                box-shadow: 0 0 28px rgba(180, 20, 40, 0.7), 0 0 55px rgba(139, 0, 0, 0.4), inset 0 0 20px rgba(139, 0, 0, 0.2);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 38px rgba(220, 40, 70, 0.95), 0 0 75px rgba(200, 30, 40, 0.6), inset 0 0 32px rgba(200, 20, 40, 0.4);
+                transform: scale(1.01);
+            }
+        }
+
+        .menu-button.active::before,
+        .menu-button.active::after {
+            background: linear-gradient(135deg, 
+                rgba(200, 30, 60, 1), 
+                rgba(130, 0, 0, 0.9));
+            border-color: rgba(220, 40, 70, 0.9);
+            box-shadow: 0 0 18px rgba(220, 30, 60, 0.8);
+        }
+
+        .menu-button.active .button-text {
+            color: #ffffff;
+            text-shadow: 0 0 18px rgba(220, 40, 70, 1), 0 0 32px rgba(200, 20, 40, 0.7);
+            letter-spacing: 8px;
+        }
+
+        .menu-button.active .blood-glow {
+            opacity: 1;
+        }
+
+        .menu-button.active .halo-ornament {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 18px;
+            border: 1px solid rgba(220, 60, 80, 0.8);
+            border-radius: 50%;
+            opacity: 1;
+            animation: haloOrnamentPulse 1.8s ease-in-out infinite;
+            background: radial-gradient(ellipse, rgba(200, 0, 0, 0.2), transparent);
+        }
+
+        @keyframes haloOrnamentPulse {
+            0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.75; width: 50px; }
+            50% { transform: translateX(-50%) scale(1.25); opacity: 1; width: 58px; }
+        }
+
+        .menu-button.active .halo-ornament::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 28px;
+            height: 10px;
+            border: 1px solid rgba(220, 60, 80, 0.5);
+            border-radius: 50%;
+        }
+
+        .blood-drop {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: radial-gradient(circle, #dc143c, #8b0000);
+            border-radius: 50%;
+            opacity: 0;
+            animation: bloodDropFall 1.4s ease-out infinite;
+        }
+
+        @keyframes bloodDropFall {
+            0% { opacity: 0.9; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(28px) scale(0.4); }
+        }
+
+        .menu-button:hover .blood-drop {
+            animation-play-state: running;
+        }
+
+        .sigil {
+            position: fixed;
+            opacity: 0.12;
+            pointer-events: none;
+            z-index: 15;
+        }
+
+        .sigil-1 {
+            bottom: 20px;
+            left: 20px;
+            width: 55px;
+            height: 55px;
+            border: 1px solid rgba(170, 20, 20, 0.5);
+            border-radius: 50%;
+            animation: sigilRotate 28s linear infinite;
+        }
+
+        .sigil-1::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 28px;
+            height: 28px;
+            border: 1px solid rgba(170, 20, 20, 0.4);
+            border-radius: 50%;
+        }
+
+        .sigil-2 {
+            bottom: 30px;
+            right: 20px;
+            width: 48px;
+            height: 48px;
+            border: 1px solid rgba(170, 30, 30, 0.45);
+            transform: rotate(45deg);
+            animation: sigilRotate 22s linear infinite reverse;
+        }
+
+        @keyframes sigilRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .infernal-verse {
+            position: fixed;
+            bottom: 12px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-family: 'Cinzel', serif;
+            font-size: 9px;
+            letter-spacing: 3px;
+            color: #7a2a2a;
+            text-transform: uppercase;
+            opacity: 0.55;
+            z-index: 25;
+            background: rgba(0,0,0,0.2);
+            backdrop-filter: blur(2px);
+            width: fit-content;
+            margin: 0 auto;
+            padding: 4px 12px;
+            border-radius: 30px;
+            pointer-events: none;
+        }
+
+        /* ============ TELA INICIAL (SPLASH) ============ */
+        .splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 0, 0, 0.85);
+            backdrop-filter: blur(4px);
+            transition: opacity 0.8s ease, visibility 0.8s ease;
+        }
+
+        .splash-screen.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .splash-screen .splash-logo {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 72px;
+            font-weight: 900;
+            color: #e8d5c4;
+            text-transform: uppercase;
+            letter-spacing: 16px;
+            text-shadow: 
+                0 0 25px rgba(139, 0, 0, 0.9),
+                0 0 50px rgba(139, 0, 0, 0.6),
+                0 0 80px rgba(139, 0, 0, 0.3),
+                2px 2px 6px rgba(0, 0, 0, 0.9);
+            animation: titleBreath 3s ease-in-out infinite;
+            margin-bottom: 1rem;
+        }
+
+        .splash-screen .splash-subtitle {
+            font-family: 'Cinzel', serif;
+            font-size: 14px;
+            color: #b33a3a;
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-bottom: 3rem;
+            opacity: 0.85;
+            text-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+        }
+
+        .splash-screen .start-button {
+            position: relative;
+            width: 380px;
+            height: 72px;
+            background: linear-gradient(180deg, 
+                rgba(25, 0, 0, 0.95) 0%, 
+                rgba(55, 0, 0, 0.92) 50%,
+                rgba(25, 0, 0, 0.95) 100%);
+            border: 2px solid rgba(139, 0, 0, 0.8);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: visible;
+            backdrop-filter: blur(3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            animation: fadeSlideUp 1.2s cubic-bezier(0.2, 0.9, 0.4, 1.1) 0.3s both;
+        }
+
+        .splash-screen .start-button::before,
+        .splash-screen .start-button::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 48px;
+            background: linear-gradient(135deg, 
+                rgba(139, 0, 0, 1), 
+                rgba(60, 0, 0, 0.8));
+            border: 1px solid rgba(139, 0, 0, 0.6);
+            transition: all 0.4s ease;
+            filter: drop-shadow(0 0 6px #8b0000);
+        }
+
+        .splash-screen .start-button::before {
+            left: -18px;
+            clip-path: polygon(100% 0%, 100% 100%, 0% 85%, 0% 15%);
+        }
+
+        .splash-screen .start-button::after {
+            right: -18px;
+            clip-path: polygon(0% 0%, 0% 100%, 100% 85%, 100% 15%);
+        }
+
+        .splash-screen .start-button .start-inner {
+            position: absolute;
+            top: 6px;
+            left: 14px;
+            right: 14px;
+            bottom: 6px;
+            border: 1px solid rgba(139, 0, 0, 0.4);
+            pointer-events: none;
+        }
+
+        .splash-screen .start-button .start-text {
+            font-family: 'Cinzel Decorative', serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: #ecd9c9;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s ease;
+            text-shadow: 0 1px 4px black;
+        }
+
+        .splash-screen .start-button .start-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at center, rgba(139, 0, 0, 0.4) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
+        }
+
+        .splash-screen .start-button:hover {
+            background: linear-gradient(180deg, 
+                rgba(65, 0, 0, 0.97) 0%, 
+                rgba(110, 0, 0, 0.93) 50%,
+                rgba(65, 0, 0, 0.97) 100%);
+            border-color: rgba(220, 40, 60, 1);
+            box-shadow: 0 0 30px rgba(139, 0, 0, 0.8), 0 0 60px rgba(139, 0, 0, 0.4), inset 0 0 16px rgba(139, 0, 0, 0.3);
+            transform: scale(1.03);
+        }
+
+        .splash-screen .start-button:hover::before,
+        .splash-screen .start-button:hover::after {
+            background: linear-gradient(135deg, 
+                rgba(200, 40, 50, 1), 
+                rgba(110, 0, 0, 0.9));
+            border-color: rgba(220, 50, 70, 1);
+            box-shadow: 0 0 16px rgba(180, 0, 0, 0.8);
+        }
+
+        .splash-screen .start-button:hover .start-text {
+            color: #fff5ec;
+            text-shadow: 0 0 16px rgba(220, 40, 60, 1), 0 0 30px rgba(200, 0, 0, 0.6);
+            letter-spacing: 14px;
+        }
+
+        .splash-screen .start-button:hover .start-glow {
+            opacity: 1;
+        }
+
+        .splash-screen .start-button:active {
+            transform: scale(0.97);
+            transition: 0.08s;
+        }
+
+        /* Pulso sutil no botão de começar */
+        .splash-screen .start-button {
+            animation: fadeSlideUp 1.2s cubic-bezier(0.2, 0.9, 0.4, 1.1) 0.3s both,
+                       startPulse 2.5s ease-in-out infinite 1.5s;
+        }
+
+        @keyframes startPulse {
+            0%, 100% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(139, 0, 0, 0.3); }
+            50% { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 0, 0, 0.6); }
+        }
+
+        /* Partículas de sangue no splash */
+        .splash-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .splash-particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: radial-gradient(circle, #dc143c, #8b0000);
+            border-radius: 50%;
+            opacity: 0;
+            animation: particleFloat 4s ease-in-out infinite;
+        }
+
+        @keyframes particleFloat {
+            0% { opacity: 0; transform: translateY(0) scale(0.5); }
+            20% { opacity: 0.6; }
+            80% { opacity: 0.4; }
+            100% { opacity: 0; transform: translateY(-80px) scale(0.2); }
+        }
+
+        /* Ocultar menu principal inicialmente */
+        .main-container {
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.8s ease 0.4s, visibility 0.8s ease 0.4s;
+        }
+
+        .main-container.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        @media (max-width: 700px) or (max-height: 700px) {
+            .game-title, .splash-screen .splash-logo {
+                font-size: 48px;
+                letter-spacing: 8px;
+            }
+            .menu-button, .splash-screen .start-button {
+                width: 280px;
+                height: 52px;
+            }
+            .menu-button .button-text, .splash-screen .start-button .start-text {
+                font-size: 14px;
+                letter-spacing: 4px;
+            }
+            .main-container {
+                margin-bottom: 3vh;
+            }
+            .logo-area {
+                margin-bottom: 1.5rem;
+            }
+            .splash-screen .splash-logo {
+                font-size: 42px;
+                letter-spacing: 6px;
+            }
+            .splash-screen .start-button {
+                width: 300px;
+                height: 60px;
+            }
+            .splash-screen .start-button .start-text {
+                font-size: 18px;
+                letter-spacing: 6px;
+            }
+        }
+
+        @media (max-height: 620px) {
+            .main-container {
+                margin-bottom: 1rem;
+                transform: scale(0.94);
+            }
+            .menu-container {
+                gap: 0.9rem;
+            }
+            .splash-screen .splash-logo {
+                font-size: 36px;
+            }
+            .splash-screen .start-button {
+                width: 260px;
+                height: 52px;
+            }
+        }
+
+        .menu-button:active {
+            transform: scale(0.98);
+            transition: 0.05s;
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <!-- Sigilos laterais discretos -->
+    <div class="sigil sigil-1"></div>
+    <div class="sigil sigil-2"></div>
+    <div class="infernal-verse">✦ SANGUE ETERNO · A DIVINA CRUZADA ✦</div>
+
+    <!-- ============ TELA INICIAL (SPLASH) ============ -->
+    <div class="splash-screen" id="splashScreen">
+        <div class="splash-particles" id="splashParticles"></div>
+        <div class="splash-logo">RUBRO</div>
+        <div class="splash-subtitle">Guerra Sanguínea</div>
+        <button class="start-button" id="startButton" onclick="startGame()">
+            <div class="start-inner"></div>
+            <div class="start-glow"></div>
+            <span class="start-text">Começar Jogo</span>
+        </button>
+    </div>
+
+    <!-- ============ MENU PRINCIPAL ============ -->
+    <div class="main-container" id="mainMenu">
+
+        <div class="menu-container">
+            <button class="menu-button active" data-action="newgame" onclick="selectButton(this)">
+                <div class="vein-pattern"></div>
+                <div class="blood-glow"></div>
+                <div class="button-inner"></div>
+                <span class="button-text">Novo Jogo</span>
+                <div class="halo-ornament"></div>
+                <div class="blood-particles">
+                    <div class="blood-drop" style="left: 20%; animation-delay: 0s;"></div>
+                    <div class="blood-drop" style="left: 50%; animation-delay: 0.3s;"></div>
+                    <div class="blood-drop" style="left: 80%; animation-delay: 0.6s;"></div>
+                </div>
+            </button>
+
+            <button class="menu-button" data-action="continue" onclick="selectButton(this)">
+                <div class="vein-pattern"></div>
+                <div class="blood-glow"></div>
+                <div class="button-inner"></div>
+                <span class="button-text">Continuar</span>
+                <div class="halo-ornament"></div>
+                <div class="blood-particles">
+                    <div class="blood-drop" style="left: 30%; animation-delay: 0.2s;"></div>
+                    <div class="blood-drop" style="left: 70%; animation-delay: 0.5s;"></div>
+                </div>
+            </button>
+
+            <button class="menu-button" data-action="quit" onclick="selectButton(this)">
+                <div class="vein-pattern"></div>
+                <div class="blood-glow"></div>
+                <div class="button-inner"></div>
+                <span class="button-text">Sair</span>
+                <div class="halo-ornament"></div>
+                <div class="blood-particles">
+                    <div class="blood-drop" style="left: 35%; animation-delay: 0.2s;"></div>
+                    <div class="blood-drop" style="left: 65%; animation-delay: 0.5s;"></div>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ============ GERAR PARTÍCULAS NO SPLASH ============
+        function generateSplashParticles() {
+            const container = document.getElementById('splashParticles');
+            for (let i = 0; i < 20; i++) {
+                const p = document.createElement('div');
+                p.className = 'splash-particle';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.top = Math.random() * 100 + '%';
+                p.style.animationDelay = Math.random() * 4 + 's';
+                p.style.animationDuration = (3 + Math.random() * 3) + 's';
+                container.appendChild(p);
+            }
+        }
+        generateSplashParticles();
+
+        // ============ INICIAR JOGO ============
+        function startGame() {
+            const splash = document.getElementById('splashScreen');
+            const menu = document.getElementById('mainMenu');
+
+            // Efeito de clique
+            const btn = document.getElementById('startButton');
+            btn.style.transform = 'scale(0.95)';
+
+            setTimeout(() => {
+                // Esconde splash
+                splash.classList.add('hidden');
+
+                // Mostra menu principal com delay suave
+                setTimeout(() => {
+                    menu.classList.add('visible');
+                    // Foca no primeiro botão do menu
+                    currentIndex = 0;
+                    selectButton(buttons[0]);
+                }, 300);
+            }, 200);
+        }
+
+        // ============ FUNÇÃO DE SELEÇÃO VISUAL ============
+        function selectButton(clickedButton) {
+            document.querySelectorAll('.menu-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            clickedButton.classList.add('active');
+
+            clickedButton.style.transform = 'scale(0.99)';
+            setTimeout(() => {
+                if(clickedButton) clickedButton.style.transform = '';
+            }, 120);
+        }
+
+        // ============ NAVEGAÇÃO POR TECLADO ============
+        let currentIndex = 0;
+        const buttons = document.querySelectorAll('.menu-button');
+
+        function syncCurrentIndex() {
+            buttons.forEach((btn, idx) => {
+                if(btn.classList.contains('active')) {
+                    currentIndex = idx;
+                }
+            });
+        }
+
+        syncCurrentIndex();
+
+        document.addEventListener('keydown', (e) => {
+            // Se o splash estiver visível, Enter no botão de começar
+            const splash = document.getElementById('splashScreen');
+            if (!splash.classList.contains('hidden')) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    startGame();
+                }
+                return;
+            }
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentIndex = (currentIndex + 1) % buttons.length;
+                selectButton(buttons[currentIndex]);
+                buttons[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+                selectButton(buttons[currentIndex]);
+                buttons[currentIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                const activeBtn = document.querySelector('.menu-button.active');
+                if (activeBtn) {
+                    const action = activeBtn.getAttribute('data-action');
+                    activeBtn.style.transform = 'scale(0.96)';
+                    setTimeout(() => { if(activeBtn) activeBtn.style.transform = ''; }, 100);
+
+                    console.log(`[RUBRO] Ação acionada: ${action || activeBtn.innerText.trim()}`);
+
+                    if (action === 'newgame') {
+                        alert("⚔️ O SANGUE CHAMA... Uma nova guerra divina começará em breve! ⚔️");
+                    } else if (action === 'continue') {
+                        alert("📜 Retomando a saga rubra... carregando salvação ou condenação.");
+                    } else if (action === 'options') {
+                        alert("🎮 Sangue, brilho e sombras — ajustes da tormenta.");
+                    } else if (action === 'bestiary') {
+                        alert("🐉 Bestiário Rubro: Criaturas da guerra imaculada.");
+                    } else if (action === 'quit') {
+                        if(confirm("Deseja realmente abandonar o campo de batalha divino?")) {
+                            alert("A guerra, porém, jamais esquecerá seu nome... Até o próximo ciclo.");
+                        }
+                    } else {
+                        alert(`[${activeBtn.innerText}] — Ainda em desenvolvimento, o sangue aguarda.`);
+                    }
+                }
+            }
+        });
+
+        buttons.forEach((btn, idx) => {
+            btn.addEventListener('click', () => {
+                currentIndex = idx;
+            });
+        });
+
+        window.addEventListener('load', () => {
+            // Menu fica oculto até clicar em "Começar Jogo"
+            if (!document.querySelector('.menu-button.active')) {
+                selectButton(buttons[0]);
+                currentIndex = 0;
+            }
+        });
+    </script>
+</body>
+</html>
