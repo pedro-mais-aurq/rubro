@@ -1,0 +1,284 @@
+{
+  "report": {
+    "title": "RELATÓRIO DE ANÁLISE DE CONFIABILIDADE ARQUITETURAL",
+    "subtitle": "RUBRO — StateManager + EventBus",
+    "analyst": "DeepSeek Senior Software Reliability Engineer",
+    "date": "2026-05-29",
+    "version": "1.0",
+    "files_analyzed": [
+      "stateManager.js",
+      "eventBus.js",
+      "CORE_CONTEXT.md",
+      "GLOBAL_UI_STATES.md",
+      "EVENT_SYSTEM_CONTEXT.md"
+    ]
+  },
+  "executive_summary": {
+    "critical_issues": 1,
+    "high_severity_issues": 3,
+    "medium_severity_issues": 7,
+    "low_severity_issues": 5,
+    "total_issues": 16,
+    "overall_assessment": "O sistema apresenta uma base arquitetural sólida com documentação excepcional, mas contém falhas críticas de implementação no StateManager que violam os princípios de atomicidade de transição definidos na documentação canônica. As issues mais severas envolvem corrupção de estado durante transições assíncronas e ausência de prevenção de concorrência."
+  },
+  "critical_issues": [
+    {
+      "id": 1,
+      "title": "Estado definido antes da conclusão de onEnter",
+      "severity": "CRÍTICA",
+      "location": "stateManager.js linhas 119-128",
+      "violated_documentation": "GLOBAL_UI_STATES §1.1 — 'Transição atômica — sem estado parcialmente ativado'",
+      "explanation": "O método transitionTo() define this.currentState = targetState e executa this.stateStack.push(targetState.id) ANTES de chamar targetState.onEnter(). Se onEnter lançar uma exceção, o sistema fica em estado inconsistente: currentState aponta para um estado que não foi totalmente inicializado, mas o estado anterior já foi descarregado.",
+      "potential_impact": [
+        "Estados órfãos (GLOBAL_UI_STATES §17)",
+        "Corrupção da pilha de estados",
+        "Eventos STATE_CHANGED emitidos com estado inconsistente",
+        "Impossibilidade de recuperação sem recarregar a página"
+      ],
+      "recommended_refactor": "async transitionTo(stateId, payload = {}) {\n  if (this.isLocked()) return false;\n  \n  const targetState = this.states.get(stateId);\n  if (!targetState) throw new Error(`Unknown state: ${stateId}`);\n  \n  const transitionContext = {\n    from: this.currentState?.id || null,\n    to: stateId,\n    payload,\n    timestamp: Date.now(),\n  };\n  \n  if (!this.#runTransitionGuards(transitionContext)) return false;\n  \n  const previousState = this.currentState;\n  await this.exitCurrentState();\n  \n  // Re-validate — state may have changed during exit\n  const validatedTarget = this.states.get(stateId);\n  if (!validatedTarget) throw new Error(`State disappeared: ${stateId}`);\n  \n  // Call onEnter BEFORE setting currentState\n  if (typeof validatedTarget.onEnter === \"function\") {\n    await validatedTarget.onEnter(payload);\n  }\n  \n  // NOW safe to set current state\n  this.currentState = validatedTarget;\n  this.stateStack.push(validatedTarget.id);\n  this.transitionHistory.push(transitionContext);\n  \n  this.invalidateRender();\n  eventBus.emit(INTERNAL_EVENTS.STATE_CHANGED, transitionContext);\n  \n  return true;\n}"
+    }
+  ],
+  "high_severity_issues": [
+    {
+      "id": 2,
+      "title": "Dessincronização entre pilha e estado atual no popState()",
+      "severity": "ALTA",
+      "location": "stateManager.js linhas 159-173",
+      "violated_documentation": "GLOBAL_UI_STATES §6.2 — Mapa de transições válidas",
+      "explanation": "popState() remove o topo da pilha com pop(), mas então chama transitionTo() que executa OUTRO push(). Isso cria entradas duplicadas na pilha.",
+      "example_corruption": "Original: ['OVERWORLD', 'BATTLE', 'BATTLE.ESCOLHA_ACAO']\npopState() → pilha: ['OVERWORLD', 'BATTLE']\ntransitionTo('BATTLE') → push → ['OVERWORLD', 'BATTLE', 'BATTLE']",
+      "potential_impact": [
+        "Pilha cresce indefinidamente a cada pop",
+        "getStateStack() retorna histórico inválido",
+        "Vazamento de memória"
+      ],
+      "recommended_refactor": "async popState() {\n  if (this.stateStack.length <= 1) return false;\n  \n  const targetStateId = this.stateStack[this.stateStack.length - 2];\n  \n  // Remove current state WITHOUT pushing in transition\n  this.stateStack.pop();\n  \n  await this._transitionWithoutStackPush(targetStateId);\n  \n  eventBus.emit(INTERNAL_EVENTS.STATE_POPPED, { stateId: targetStateId });\n  return true;\n}\n\nasync _transitionWithoutStackPush(stateId, payload = {}) {\n  // Same as transitionTo but without stack.push\n  // ... implementation ...\n}"
+    },
+    {
+      "id": 3,
+      "title": "Ausência de prevenção de transições concorrentes",
+      "severity": "ALTA",
+      "location": "stateManager.js linhas 103-139",
+      "violated_documentation": "GLOBAL_UI_STATES §6.1 — 'Transição atômica'",
+      "explanation": "transitionTo() é assíncrono mas não possui guarda contra chamadas concorrentes. Se duas transições forem iniciadas antes da primeira completar, ocorre race condition.",
+      "failure_scenario": [
+        "Transição A inicia, executa exitCurrentState()",
+        "Transição B inicia, lê currentState (ainda é o estado antigo)",
+        "Ambas chamam exitCurrentState() no mesmo estado",
+        "Ambas tentam definir currentState",
+        "Estado final indeterminado"
+      ],
+      "potential_impact": [
+        "onExit executado múltiplas vezes",
+        "Múltiplos eventos STATE_CHANGED",
+        "Corrupção de locks"
+      ],
+      "recommended_refactor": "constructor() {\n  // ...\n  this._transitioning = false;\n}\n\nasync transitionTo(stateId, payload = {}) {\n  if (this._transitioning) {\n    this.#log(`Transition rejected: already transitioning`);\n    return false;\n  }\n  \n  if (this.isLocked()) return false;\n  \n  this._transitioning = true;\n  \n  try {\n    // ... existing transition logic ...\n  } finally {\n    this._transitioning = false;\n  }\n}"
+    },
+    {
+      "id": 4,
+      "title": "Estado órfão quando onExit lança exceção",
+      "severity": "ALTA",
+      "location": "stateManager.js linhas 143-149",
+      "violated_documentation": "GLOBAL_UI_STATES §6.1 — 'sem estado parcialmente ativado'",
+      "explanation": "Se state.onExit() lançar uma exceção, this.currentState não é definido como null. O sistema mantém referência a um estado que pode estar parcialmente limpo.",
+      "potential_impact": [
+        "Estado órfão como currentState",
+        "onExit pode ser chamado novamente em transição futura",
+        "invalidateRender() pode referenciar estado inválido"
+      ],
+      "recommended_refactor": "async exitCurrentState() {\n  if (!this.currentState) return;\n  \n  const state = this.currentState;\n  \n  try {\n    if (typeof state.onExit === \"function\") {\n      await state.onExit();\n    }\n  } finally {\n    // Always clear currentState, even if onExit throws\n    this.currentState = null;\n    this.invalidateRender();\n  }\n}"
+    }
+  ],
+  "medium_severity_issues": [
+    {
+      "id": 5,
+      "title": "Sistema de locks sem timeout ou detecção de deadlock",
+      "severity": "MÉDIA",
+      "location": "stateManager.js linhas 175-201",
+      "violated_documentation": "GLOBAL_UI_STATES §16 — Locks operacionais",
+      "explanation": "Locks são armazenados em um Set sem metadados (quem adquiriu, quando, duração máxima). Se um lock nunca for liberado, o sistema fica permanentemente travado.",
+      "potential_impact": [
+        "UI permanentemente congelada",
+        "Impossibilidade de diagnosticar qual lock está preso",
+        "GLOBAL_UI_STATES §16 locks não têm enforcement real"
+      ],
+      "recommended_refactor": "lock(lockId, owner = \"unknown\") {\n  if (!lockId) return;\n  \n  this.locks.set(lockId, {\n    id: lockId,\n    owner,\n    timestamp: Date.now()\n  });\n  \n  // Timeout de segurança: 10 segundos\n  setTimeout(() => {\n    if (this.locks.has(lockId)) {\n      console.error(`[StateManager] Lock timeout: ${lockId} owned by ${owner}`);\n      this.unlock(lockId);\n    }\n  }, 10000);\n  \n  eventBus.emit(INTERNAL_EVENTS.STATE_LOCKED, { lockId, owner });\n}\n\ngetLocks() {\n  return Array.from(this.locks.entries()).map(([id, data]) => ({\n    id,\n    owner: data.owner,\n    age: Date.now() - data.timestamp\n  }));\n}"
+    },
+    {
+      "id": 6,
+      "title": "unregisterState inseguro durante transição ativa",
+      "severity": "MÉDIA",
+      "location": "stateManager.js linhas 87-94",
+      "explanation": "unregisterState não verifica se o estado está na pilha (não apenas como current). Estados na pilha podem ser referenciados por popState().",
+      "potential_impact": [
+        "Pilha contém referências a estados deletados",
+        "getStateStack() retorna IDs inválidos",
+        "Vazamento de memória"
+      ],
+      "recommended_refactor": "unregisterState(stateId) {\n  if (!this.states.has(stateId)) return;\n  \n  if (this.stateStack.includes(stateId)) {\n    console.error(`Cannot unregister state in stack: ${stateId}`);\n    return;\n  }\n  \n  if (this.currentState?.id === stateId) {\n    await this.exitCurrentState();\n  }\n  \n  this.states.delete(stateId);\n}"
+    },
+    {
+      "id": 7,
+      "title": "Sistema de overlays sem limite de profundidade",
+      "severity": "MÉDIA",
+      "location": "stateManager.js linhas 151-176",
+      "violated_documentation": "GLOBAL_UI_STATES §8.4 — 'Máximo 2 overlays simultâneos'",
+      "explanation": "addOverlay permite qualquer número de overlays, violando a regra documentada. Também não há resolução de conflito por prioridade.",
+      "potential_impact": [
+        "UI ocluída",
+        "Degradação de performance",
+        "OVERLAY_LOCK do GLOBAL_UI_STATES §16 não implementado"
+      ],
+      "recommended_refactor": "addOverlay(overlayId, data = {}) {\n  if (this.overlays.has(overlayId)) return;\n  \n  if (this.overlays.size >= 2) {\n    console.warn(`Max overlays reached (2), rejecting: ${overlayId}`);\n    return;\n  }\n  \n  const overlayPriority = { PAUSE: 90, DIALOGUE: 65, INVENTORY: 55, SETTINGS: 75 };\n  const newPriority = overlayPriority[overlayId] || 0;\n  \n  for (const [existingId, existing] of this.overlays) {\n    const existingPriority = overlayPriority[existingId] || 0;\n    if (newPriority > existingPriority) {\n      this.removeOverlay(existingId);\n    } else if (existingPriority > newPriority) {\n      return;\n    }\n  }\n  \n  this.overlays.set(overlayId, { id: overlayId, data, createdAt: Date.now() });\n  this.invalidateRender();\n  eventBus.emit(INTERNAL_EVENTS.OVERLAY_ADDED, { overlayId, data });\n}"
+    },
+    {
+      "id": 8,
+      "title": "Render invalidation sem garantia de consumo",
+      "severity": "MÉDIA",
+      "location": "stateManager.js linhas 209-216",
+      "explanation": "invalidateRender() emite evento mas não há garantia de que main.js (ou qualquer consumidor) está escutando.",
+      "potential_impact": [
+        "UI dessincronizada",
+        "Sprites, barras de HP ou indicadores de status desatualizados",
+        "Violação das regras de sincronização GLOBAL_UI_STATES §15.1"
+      ],
+      "recommended_refactor": "invalidateRender() {\n  const payload = {\n    currentState: this.currentState?.id || null,\n    overlays: this.getOverlays(),\n    timestamp: Date.now(),\n    sequence: ++this._renderSequence\n  };\n  \n  eventBus.emit(INTERNAL_EVENTS.RENDER_INVALIDATED, payload);\n  \n  if (this.debug && !this._hasRenderListener) {\n    console.warn('[StateManager] No render listener detected.');\n  }\n}"
+    },
+    {
+      "id": 9,
+      "title": "Fila de eventos sem limite de tamanho",
+      "severity": "MÉDIA",
+      "location": "eventBus.js linhas 290-308",
+      "violated_documentation": "GLOBAL_UI_STATES §8.4 — Limites anti-poluição visual",
+      "explanation": "A fila _fila no eventBus.js pode crescer indefinidamente se a emissão superar o consumo.",
+      "potential_impact": [
+        "Vazamento de memória",
+        "Backlog de eventos causando atrasos na UI",
+        "Violações de timing de animação"
+      ],
+      "recommended_refactor": "const MAX_QUEUE_SIZE = 50;\n\nfunction enfileirar(nome, payload = {}, modulo) {\n  if (_fila.length >= MAX_QUEUE_SIZE) {\n    console.error(`[RUBRO] Event queue overflow. Dropping: ${nome}`);\n    return false;\n  }\n  \n  _fila.push({ nome, payload, modulo });\n  \n  if (!_filaProcessando) {\n    _filaProcessando = true;\n    queueMicrotask(_processarFila);\n  }\n  return true;\n}"
+    },
+    {
+      "id": 14,
+      "title": "Listeners podem vazar entre transições de estado",
+      "severity": "MÉDIA",
+      "location": "eventBus.js + stateManager.js",
+      "violated_documentation": "GLOBAL_UI_STATES §19.3 — Roteamento de eventos por estado",
+      "explanation": "Não há limpeza automática de listeners do eventBus quando o StateManager transiciona. Listeners registrados durante BATTLE ainda recebem eventos em OVERWORLD.",
+      "potential_impact": [
+        "Eventos processados fora do estado autorizado",
+        "Vazamentos de memória por closures retidas",
+        "Bugs difíceis de reproduzir"
+      ],
+      "recommended_refactor": "// Em StateManager:\nasync transitionTo(stateId, payload = {}) {\n  // ... existing code ...\n  \n  // Clean up event listeners for previous state's modules\n  if (this.currentState) {\n    const modulesToCleanup = this._getModulesForState(this.currentState.id);\n    modulesToCleanup.forEach(module => {\n      eventBus.cancelarPorModulo(module);\n    });\n  }\n  \n  // ... rest of transition ...\n}\n\n_getModulesForState(stateId) {\n  const mapping = {\n    'BATTLE': ['turnos.js', 'dano.js'],\n    'OVERWORLD': ['capitulos.js'],\n    'CUTSCENE': ['main.js']\n  };\n  return mapping[stateId] || [];\n}"
+    },
+    {
+      "id": 15,
+      "title": "Desconexão entre locks do StateManager e hooks do EventBus",
+      "severity": "MÉDIA",
+      "location": "stateManager.js + eventBus.js",
+      "violated_documentation": "GLOBAL_UI_STATES §16 — Locks operacionais",
+      "explanation": "StateManager.locks e eventBus._hooks são sistemas completamente independentes. Eventos podem ser emitidos durante INPUT_LOCK, violando a semântica de bloqueio.",
+      "potential_impact": [
+        "Eventos emitidos durante estados bloqueantes",
+        "Input processado quando deveria estar bloqueado",
+        "Saves durante SAVE_LOCK"
+      ],
+      "recommended_refactor": "// Em eventBus.js:\nconst emitir_final = function emitir(nome, payload = {}, modulo) {\n  // Check global locks if available\n  if (typeof window !== 'undefined' && window._RUBRO_STATE_MANAGER) {\n    const sm = window._RUBRO_STATE_MANAGER;\n    \n    if (nome.startsWith('rubro:') && !nome.startsWith('rubro:input-')) {\n      if (sm.isLocked && sm.isLocked()) {\n        console.warn(`[RUBRO] Event blocked by locks: ${nome}`);\n        return false;\n      }\n    }\n  }\n  \n  // ... rest of emission logic ...\n}"
+    }
+  ],
+  "low_severity_issues": [
+    {
+      "id": 10,
+      "title": "Detecção de profundidade de cadeia apenas síncrona",
+      "severity": "BAIXA",
+      "location": "eventBus.js linhas 209-213",
+      "explanation": "_profundidadeCadeia só detecta cadeias dentro de um único stack síncrono. Cadeias assíncronas (via queueMicrotask ou setTimeout) não são detectadas.",
+      "potential_impact": [
+        "Loops de eventos assíncronos infinitos não detectados",
+        "Logs de debug incompletos"
+      ],
+      "recommended_refactor": "const _chainRegistry = new Map();\n\nfunction emitirCadeia(nomeOrigem, nomeDestino, payload = {}, modulo) {\n  const correlationId = `${nomeOrigem}_${Date.now()}_${Math.random()}`;\n  \n  const currentDepth = _chainRegistry.get(nomeOrigem)?.depth || 0;\n  if (currentDepth + 1 > MAX_CHAIN_DEPTH) {\n    console.error(`[RUBRO] Async chain depth exceeded: ${nomeOrigem} → ${nomeDestino}`);\n  }\n  \n  _chainRegistry.set(correlationId, { origin: nomeOrigem, depth: currentDepth + 1, timestamp: Date.now() });\n  setTimeout(() => _chainRegistry.delete(correlationId), 5000);\n  \n  return emitir(nomeDestino, payload, modulo);\n}"
+    },
+    {
+      "id": 11,
+      "title": "Ordem de execução de guards não determinística",
+      "severity": "BAIXA",
+      "location": "stateManager.js linhas 192-208",
+      "explanation": "Guards são executados na ordem do array, sem sistema de prioridade. Guards com side effects podem produzir comportamento não determinístico.",
+      "recommended_refactor": "addTransitionGuard(guard, priority = 0, name = \"anonymous\") {\n  this.transitionGuards.push({ fn: guard, priority, name });\n  this.transitionGuards.sort((a, b) => b.priority - a.priority);\n}\n\n#runTransitionGuards(context) {\n  const failedGuards = [];\n  \n  for (const guard of this.transitionGuards) {\n    try {\n      const result = guard.fn(context);\n      if (result === false) failedGuards.push(guard.name);\n    } catch (error) {\n      failedGuards.push(`${guard.name}(error: ${error.message})`);\n    }\n  }\n  \n  if (failedGuards.length > 0) {\n    this.#log(`Transition denied by guards: ${failedGuards.join(', ')}`);\n    return false;\n  }\n  \n  return true;\n}"
+    },
+    {
+      "id": 12,
+      "title": "Ambiguidade no retorno de persistState",
+      "severity": "BAIXA",
+      "location": "stateManager.js linhas 225-239",
+      "explanation": "persistState() retorna null tanto para 'hook não registrado' quanto para 'hook falhou'. Não há distinção entre os casos.",
+      "recommended_refactor": "async persistState(stateId) {\n  const hook = this.persistenceHooks.get(stateId);\n  if (!hook) return { success: false, reason: 'no_hook', data: null };\n  \n  try {\n    const data = await hook();\n    return { success: true, data, error: null };\n  } catch (error) {\n    console.error(`Persistence failed for ${stateId}`, error);\n    return { success: false, reason: 'error', error: error.message, data: null };\n  }\n}"
+    },
+    {
+      "id": 13,
+      "title": "Ausência de validação de métodos de ciclo de vida",
+      "severity": "BAIXA",
+      "location": "stateManager.js linhas 68-84",
+      "explanation": "registerState aceita qualquer função para onEnter/onExit sem validação de segurança (timeout, detecção de loop, etc.).",
+      "recommended_refactor": "registerState(stateId, config = {}) {\n  // ... existing validation ...\n  \n  const safeWrapper = (fn, name) => {\n    if (!fn) return null;\n    return async (...args) => {\n      const startTime = performance.now();\n      try {\n        return await fn(...args);\n      } finally {\n        const duration = performance.now() - startTime;\n        if (duration > 100) {\n          console.warn(`[StateManager] Slow ${name} for ${stateId}: ${duration}ms`);\n        }\n      }\n    };\n  };\n  \n  const state = {\n    id: stateId,\n    onEnter: safeWrapper(config.onEnter, 'onEnter'),\n    onExit: safeWrapper(config.onExit, 'onExit'),\n    onUpdate: safeWrapper(config.onUpdate, 'onUpdate'),\n    metadata: config.metadata || {},\n    persistent: Boolean(config.persistent),\n  };\n  \n  // ... rest ...\n}"
+    },
+    {
+      "id": 16,
+      "title": "cleanup() não limpa estados registrados",
+      "severity": "BAIXA",
+      "location": "stateManager.js linhas 218-235",
+      "explanation": "cleanup() limpa pilhas e overlays mas mantém this.states. Após cleanup, não é possível re-registrar estados (lançaria 'already registered').",
+      "recommended_refactor": "async cleanup() {\n  await this.exitCurrentState();\n  \n  this.stateStack = [];\n  this.overlays.clear();\n  this.transitionHistory = [];\n  this.transitionGuards = [];\n  this.locks.clear();\n  this.persistenceHooks.clear();\n  \n  // Clear all registered states to allow fresh registration\n  this.states.clear();\n  \n  // Reset to BOOT-compatible state\n  this.currentState = null;\n  \n  this.invalidateRender();\n  this.#log(\"StateManager cleanup completed.\");\n}"
+    }
+  ],
+  "traceability_matrix": {
+    "issue_1": { "state_manager": true, "event_bus": false, "core_context": true, "ui_states": true, "event_context": false },
+    "issue_2": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": true, "event_context": false },
+    "issue_3": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": true, "event_context": false },
+    "issue_4": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": true, "event_context": false },
+    "issue_5": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": true, "event_context": false },
+    "issue_6": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": false, "event_context": false },
+    "issue_7": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": true, "event_context": false },
+    "issue_8": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": true, "event_context": false },
+    "issue_9": { "state_manager": false, "event_bus": true, "core_context": false, "ui_states": true, "event_context": true },
+    "issue_10": { "state_manager": false, "event_bus": true, "core_context": false, "ui_states": false, "event_context": true },
+    "issue_11": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": false, "event_context": false },
+    "issue_12": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": false, "event_context": false },
+    "issue_13": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": false, "event_context": false },
+    "issue_14": { "state_manager": true, "event_bus": true, "core_context": false, "ui_states": true, "event_context": true },
+    "issue_15": { "state_manager": true, "event_bus": true, "core_context": false, "ui_states": true, "event_context": false },
+    "issue_16": { "state_manager": true, "event_bus": false, "core_context": false, "ui_states": false, "event_context": false }
+  },
+  "priority_recommendations": {
+    "immediate_current_sprint": [
+      "Corrigir Issue #1 — Reordenar transitionTo para chamar onEnter antes de definir currentState",
+      "Corrigir Issue #3 — Adicionar flag _transitioning para prevenir concorrência",
+      "Corrigir Issue #4 — Envolver exitCurrentState em try-finally"
+    ],
+    "short_term_next_sprint": [
+      "Corrigir Issue #2 — Refatorar popState para evitar duplicação na pilha",
+      "Corrigir Issue #5 — Adicionar timeout e metadata aos locks",
+      "Corrigir Issue #7 — Implementar limite e prioridade de overlays",
+      "Corrigir Issue #14 — Adicionar limpeza automática de listeners por estado"
+    ],
+    "medium_term_backlog": [
+      "Corrigir Issue #9 — Adicionar limite máximo à fila de eventos",
+      "Corrigir Issue #15 — Integrar locks do StateManager com eventBus",
+      "Corrigir Issues #6, #8, #10-13, #16 — Issues de baixa/média severidade restantes"
+    ]
+  },
+  "conclusion": "O sistema RUBRO possui uma documentação arquitetural excelente (CORE_CONTEXT, GLOBAL_UI_STATES, EVENT_SYSTEM_CONTEXT) que define contratos claros e invariantes. No entanto, a implementação atual do StateManager apresenta falhas significativas que violam esses contratos, especialmente em relação à atomicidade de transições e gerenciamento de concorrência.\n\nAs issues críticas e de alta severidade (#1, #2, #3, #4) devem ser tratadas com prioridade máxima, pois podem levar a corrupção de estado irrecuperável e comportamentos não determinísticos em produção.\n\nRecomenda-se a implementação das refatorações propostas antes do avanço para integração com os demais módulos (turnos.js, capitulos.js, main.js).",
+  "commands_for_implementation": [
+    "git checkout -b fix/state-manager-atomicity",
+    "npm run test:state-manager (se existir) ou criar testes unitários para as issues identificadas",
+    "Implementar correções na ordem: #1, #3, #4, #2, #5, #7, #14",
+    "Após cada correção, executar teste de regressão nas transições de estado documentadas em GLOBAL_UI_STATES §6.2",
+    "Verificar se todos os eventos STATE_CHANGED continuam sendo emitidos corretamente",
+    "git commit -m 'fix(state-manager): corrigir atomicidade de transições e prevenção de concorrência'",
+    "git push origin fix/state-manager-atomicity",
+    "Abrir PR para revisão com link para este relatório"
+  ]
+}
